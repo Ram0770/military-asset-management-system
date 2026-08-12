@@ -39,12 +39,12 @@ const store = {
   auditLogs: []
 };
 
-// Initialize fallback passwords
-async function initFallbackUsers() {
+// Synchronous initialization of demo users
+function initFallbackUsers() {
   if (store.users.length > 0) return;
-  const adminPass = await bcrypt.hash("admin123", 10);
-  const commandPass = await bcrypt.hash("command123", 10);
-  const logisticsPass = await bcrypt.hash("logistics123", 10);
+  const adminPass = bcrypt.hashSync("admin123", 10);
+  const commandPass = bcrypt.hashSync("command123", 10);
+  const logisticsPass = bcrypt.hashSync("logistics123", 10);
 
   store.users = [
     { id: 1, name: "Admin Officer", username: "admin", email: "admin@military.gov", password: adminPass, role: "ADMIN", baseId: 1, createdAt: new Date() },
@@ -79,6 +79,10 @@ initFallbackUsers();
 
 export async function checkPostgresHealth() {
   if (isPostgresAvailable !== null) return isPostgresAvailable;
+  if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes("localhost:5432")) {
+    isPostgresAvailable = false;
+    return false;
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
     isPostgresAvailable = true;

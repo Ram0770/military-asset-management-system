@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import { authenticateToken } from "./middleware/auth.js";
 import authRouter from "./routes/auth.js";
 import basesRouter from "./routes/bases.js";
@@ -16,28 +18,20 @@ import usersRouter from "./routes/users.js";
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const port = Number(process.env.PORT) || 5000;
 
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-// Security & Middleware
-app.use(helmet());
+// Security Middleware (Relax contentSecurityPolicy for inline scripts/styles in production)
 app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === "development") {
-        callback(null, true);
-        return;
-      }
-      callback(new Error("CORS origin access blocked."));
-    },
-    credentials: true
+  helmet({
+    contentSecurityPolicy: false
   })
 );
+
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 // Health Check
@@ -63,9 +57,16 @@ app.use("/api/expenditures", authenticateToken, expendituresRouter);
 app.use("/api/audit-logs", authenticateToken, auditLogsRouter);
 app.use("/api/users", authenticateToken, usersRouter);
 
-// Global 404 Handler
-app.use((_req, res) => {
-  res.status(404).json({ message: "API route endpoint not found." });
+// Serve Frontend Static Dist Assets (Unified Single-Port Fullstack App)
+const distPath = path.join(__dirname, "../../frontend/dist");
+app.use(express.static(distPath));
+
+// Fallback all non-API routes to index.html for Single-Page Application (SPA) Client Routing
+app.get("*", (req, res) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ message: "API route endpoint not found." });
+  }
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
 // Secure Global Error Handler
@@ -78,9 +79,9 @@ app.use((error, _req, res, _next) => {
 
 app.listen(port, () => {
   console.log(`=================================================`);
-  console.log(`Military Asset Management System Backend Active`);
+  console.log(`Unified Fullstack Military Asset Management System`);
   console.log(`Listening on Port: ${port}`);
-  console.log(`Allowed CORS Origins: ${allowedOrigins.join(", ")}`);
+  console.log(`Serving Frontend & API on single unified port!`);
   console.log(`=================================================`);
 });
 
